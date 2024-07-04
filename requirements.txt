@@ -1,0 +1,24 @@
+# YOLOv5 dependencies
+numpy==1.19.5
+torch>=1.7.0
+torchvision>=0.8.1
+Pillow
+opencv-python>=4.1.1
+matplotlib>=3.2.2
+PyYAML>=5.3.1
+tqdm>=4.41.0
+seaborn>=0.11.0
+pandas>=1.1.4
+scipy>=1.4.1
+requests>=2.23.0
+tensorboard>=2.4.1
+tensorboardX>=2.1
+thop
+
+# Additional requirements
+ftfy
+regex
+ipyplot
+flask
+Flask-Cors
+git+https://github.com/openai/CLIP.git

@@ -7,147 +7,118 @@ Original file is located at
     https://colab.research.google.com/drive/1egkUyXz5GUVUKwNEZFyVmUuzwMpvYbkp
 """
 
-# Commented out IPython magic to ensure Python compatibility.
-# #@title Install requirements
-# %%capture
-# !pip install -r https://raw.githubusercontent.com/ultralytics/yolov5/master/requirements.txt
-# ! pip install ftfy regex tqdm
-# ! pip install git+https://github.com/openai/CLIP.git
-# ! pip install ipyplot
-# !pip install flask
-# !pip install Flask-Cors
-#
 
 #@title import
 import glob
 import pprint as pp
 import time
-from re import T
 from urllib.parse import parse_qs, urlparse
 import clip
 import numpy as np
 import requests
 import torch
 from PIL import Image
-import io
-from flask import Flask
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
+import tempfile
+import os
+from io import BytesIO
 
 #@title Create Flask app
 app = Flask(__name__)
 
-# Allow CORS
+#@title ADD CORS
 CORS(app)
 
-"""
-Type in a url to a direct link of an **image**."""
-
-url = 'https://productplacementblog.com/wp-content/uploads/2018/02/Jack-Daniels-and-Al-Pacino-in-Scent-of-a-Woman-12-800x500.jpg' #@param {type:"string"}
-import requests
-from PIL import Image
-from io import BytesIO
-import warnings
-import uuid
-warnings.filterwarnings("ignore")
-import tempfile
-
-response = requests.get(url)
-img1 = Image.open(BytesIO(response.content)).convert("RGB")
-img1
-
-#@title yolo
-from IPython.display import Image, display
-from PIL import Image, ImageFont
-import os
-import cv2
-import torch
-import glob
-import sys
-import warnings
-
-if not sys.warnoptions:
-    warnings.simplefilter("ignore")
-
-# Model
-model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
-
-results = model(img1)  # includes NMS
-#image_path = "/content/"
-#os.mkdir(image_path)
-#image = results.save("/content/image")
-dirpath = tempfile.mkdtemp()
-results.crop(save_dir=dirpath)
-from IPython.display import Image
-#Image(filename='/content/image/image0.jpg')
-path= dirpath+'/crops/**/*.jpg'
-
-txtfiles = []
-
-for file in glob.glob(path):
-    txtfiles.append(file)
-
-import ipyplot
-from PIL import Image
-
-l = []
-#keyList = list(range(len(txtfiles)))
-for filename in glob.glob(path):
-  foo = Image.open(filename).convert('RGB')
-  #resized_image = foo.resize((250,250))
-  l.append(foo)
-
-import torch
-import clip
-from PIL import Image
-
+#@title Module initialization
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
+clip_model, preprocess = clip.load("ViT-B/32", device=device)
+yolo_model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
-images = torch.stack([preprocess(im) for im in l]).to(device)
-with torch.no_grad():
-  image_features = model.encode_image(images)
-  image_features /= image_features.norm(dim=-1, keepdim=True)
+#@title Process image files
+def process_image(url):
+    response = requests.get(url)
+    img1 = Image.open(BytesIO(response.content)).convert("RGB")
+    return img1
 
-image_features.cpu().numpy()
-image_mean = torch.tensor([0.48145466, 0.4578275, 0.40821073]).cuda()
-image_std = torch.tensor([0.26862954, 0.26130258, 0.27577711]).cuda()
+#@title Crop image
+def crop_image(img):
+    results = yolo_model(img)
+    dirpath = tempfile.mkdtemp()
+    results.crop(save_dir=dirpath)
+    path = os.path.join(dirpath, 'crops', '**', '*.jpg')
 
-images = [preprocess(im) for im in l]
-image_input = torch.tensor(np.stack(images)).cuda()
-image_input -= image_mean[:, None, None]
-image_input /= image_std[:, None, None]
-with torch.no_grad():
-    image_features = model.encode_image(image_input).float()
-image_features /= image_features.norm(dim=-1, keepdim=True)
+    cropped_images = []
+    for file in glob.glob(path, recursive=True):
+        cropped_images.append(Image.open(file).convert('RGB'))
 
-def similarity_top(similarity_list,N):
-  results = zip(range(len(similarity_list)), similarity_list)
-  results = sorted(results, key=lambda x: x[1],reverse= True)
-  top_images = []
-  scores=[]
-  for index,score in results[:N]:
-    scores.append(score)
-    top_images.append(l[index])
-  return scores,top_images
+    return cropped_images
 
-search_query = "jack daniels"
+#@title Get similar image
+def get_similar_image(cropped_images, search_query):
+    images = torch.stack([preprocess(im) for im in cropped_images]).to(device)
+    with torch.no_grad():
+        image_features = clip_model.encode_image(images)
+        image_features /= image_features.norm(dim=-1, keepdim=True)
 
-#@title Crop
-with torch.no_grad():
-    # Encode and normalize the description using CLIP
-    text_encoded = model.encode_text(clip.tokenize(search_query).to(device))
-    text_encoded /= text_encoded.norm(dim=-1, keepdim=True)
+    with torch.no_grad():
+        text_encoded = clip_model.encode_text(clip.tokenize(search_query).to(device))
+        text_encoded /= text_encoded.norm(dim=-1, keepdim=True)
 
-# Retrieve the description vector and the photo vectors
+    similarity = text_encoded.cpu().numpy() @ image_features.cpu().numpy().T
+    similarity = similarity[0]
+    scores, top_images = similarity_top(similarity, cropped_images, N=1)
 
-similarity = text_encoded.cpu().numpy() @ image_features.cpu().numpy().T
-similarity = similarity[0]
-scores,imgs= similarity_top(similarity,N=1)
-ipyplot.plot_images(imgs,img_width=350)
+    return top_images[0]
 
+#@title Get the top N similar images
+def similarity_top(similarity_list, image_list, N):
+    results = zip(range(len(similarity_list)), similarity_list)
+    results = sorted(results, key=lambda x: x[1], reverse=True)
+    top_images = []
+    scores = []
+    for index, score in results[:N]:
+        scores.append(score)
+        top_images.append(image_list[index])
+    return scores, top_images
+
+#@title Import the necessary library for search
+from re import search
+
+
+#@title Adding routes to the app
+@app.route('/crop', methods=['POST'])
+def crop():
+    data = request.get_json()
+    url = data.get('url')
+    search_query = data.get('query', 'jack daniels')
+    # print necessary data of the request to make sure the request is received
+    print(url, search_query)
+    if not url:
+        return jsonify({'error': 'No URL provided'}), 400
+
+    try:
+        img = process_image(url)
+        cropped_images = crop_image(img)
+
+        if not cropped_images:
+            return jsonify({'error': 'No images were cropped'}), 500
+
+        similar_image = get_similar_image(cropped_images, search_query)
+
+        buffer = BytesIO()
+        similar_image.save(buffer, format="JPEG")
+        buffer.seek(0)
+
+        return send_file(buffer, mimetype='image/jpeg'), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+#@title Run app
 @app.route('/')
-def hello():
-  return "hello world"
+def heme():
+    return "hello world"
 
 if __name__ == '__main__':
-  app.run()
+    app.run()

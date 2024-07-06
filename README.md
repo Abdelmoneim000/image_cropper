@@ -17,12 +17,11 @@ This documentation provides a comprehensive overview of the project, including d
 
 The project uses Docker to create a consistent and isolated environment. The Docker setup is defined in the [Dockerfile](#file:Dockerfile-context). This file specifies the use of Python 3.8-slim as the base image, sets the working directory, copies the current directory contents into the container, installs the necessary packages from `requirements.txt`, exposes port 5000, sets the `FLASK_APP` environment variable to `app.py`, and specifies the command to run the Flask application.
 
-**Notes:**
-- Ensure Docker is properly configured and running on your system before proceeding with the installation.
-- The Dockerfile assumes a stable internet connection for package installation from `requirements.txt`.
+> [!NOTE]
+> Ensure Docker is properly configured and running on your system before proceeding with the installation. The Dockerfile assumes a stable internet connection for package installation from `requirements.txt`.
 
-**Warnings:**
-- Modifications to the Dockerfile should be made with caution to avoid breaking dependencies or compromising the environment's integrity.
+> [!WARNING]
+> Modifications to the Dockerfile should be made with caution to avoid breaking dependencies or compromising the environment's integrity.
 
 ## Python Scripts
 
@@ -38,13 +37,11 @@ The [`pp.py`](#file:pp.py-context) script is used to send a request to a server 
 
 The `Crop_CLIP.ipynb` script is an adaptation from a Colab notebook designed for image processing and similarity search using CLIP and YOLOv5 models within a Flask web application.
 
-**Notes:**
-- Ensure proper setup of CLIP and YOLOv5 models as specified in the notebook for accurate image processing.
-- Flask web application environment must support Python libraries `flask` and `flask_cors` for endpoint functionality.
+> [!NOTE]
+> Ensure proper setup of CLIP and YOLOv5 models as specified in the notebook for accurate image processing. Flask web application environment must support Python libraries `flask` and `flask_cors` for endpoint functionality.
 
-**Warnings:**
-- Use caution when modifying the script to avoid unintended changes to image processing or model interactions.
-- Verify URL inputs to `/crop` endpoint to prevent potential security risks or malicious attacks.
+> [!WARNING]
+> Use caution when modifying the script to avoid unintended changes to image processing or model interactions. Verify URL inputs to `/crop` endpoint to prevent potential security risks or malicious attacks.
 
 #### Overview
 
@@ -62,12 +59,13 @@ The script exposes a Flask endpoint `/crop` to handle POST requests with JSON da
 
 The project's dependencies are listed in the [`requirements.txt`](#file:requirements.txt-context) file. These include libraries necessary for YOLOv5, image processing, data manipulation, and web service interaction, such as `numpy`, `torch`, `Pillow`, `opencv-python`, and `requests`, among others.
 
-**Notes:**
-- Review and update `requirements.txt` regularly to maintain compatibility with latest library versions and security patches.
 
-**Warnings:**
-- Install dependencies in a controlled environment to prevent conflicts with existing Python installations or libraries.
-- Verify compatibility of new library versions with existing codebase before updating dependencies.
+> [!NOTE]
+> Review and update `requirements.txt` regularly to maintain compatibility with latest library versions and security patches.
+
+
+> [!WARNING]
+> Install dependencies in a controlled environment to prevent conflicts with existing Python installations or libraries. Verify compatibility of new library versions with existing codebase before updating dependencies.
 
 ## Installation
 
@@ -79,4 +77,4 @@ To install and run this project:
 
 ```shell
 docker build -t your_project_name .
-```
+``
